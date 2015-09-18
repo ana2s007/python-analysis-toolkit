@@ -110,8 +110,8 @@ Public Functions
 def plot_event_frequency(ts_dict, 
                          major_granularity, 
                          minor_granularity, 
-                         start_date = None,
-                         end_date = None,
+                         start_dates,
+                         end_dates,
                          title = "Placeholder Title",
                          save_instead_plot = False, 
                          fname = "foo.png",
@@ -123,34 +123,33 @@ def plot_event_frequency(ts_dict,
         Mandatory Args:
              ts_dict: dictionary where the keys are the keys (String) to plot a timeseries for and 
                       the value for each key is (a list of DateTimes) at which the events occured
-             major_granularities (list of strings): elements can be years, months, days, hours, or minutes
-             minor_granularities (list of strings): elements can be months, days, hours, minutes, seconds
+             major_granularity (string): can be years, months, days, hours, or minutes
+             minor_granularity (string): can be months, days, hours, minutes, seconds
                                
                       *there will be one tickmark on the x axis for every major-minor. 
                       For example, if major is years and minor is months, there will be a tick for every month in the timerange. 
                       IMPORTANT: minor_granularity defines the "granularity" of this function. E.g., if it is hours, then all events that happen in 
                           [Y-M-D H:*] are bucketed into the bucket [Y-M-D H:*]       
-                      
-                      These are lists because this function will show a stacked plot if you want to see multiple granularities at once                     
-
+            
+             start_dates (list of Datetime Objects): all data prior to element i is cut off prior to graphing on subplot i
+             end_dates (list of Datetime Objects):   all data after element i is cut off prior to graphing on subplot i
+                                   
         Optional Args:
              title (string): goes into the matplotlib plot
              save_instead_plot (boolean): save the plot to a file instead of calling plot.show(). Defaults to False
              fname (string): filename to save the plot to via save_instead_plot. Defaults to "foo.png". Does nothing if not save_instead_plot
-             start_date (Datetime Object): if a datetime, all data prior to this date is cut off prior to graphing
-             end_date (Datetime Object): if a datetime, all data after this date is cut off prior to graphing
              event_name (string): text tht gos on y-label
         Returns:
              None, but writes to disk if save_instead_plot is True
              
     """             
     fig = plt.figure()#setup the main graph
-    total_plots = len(start_date)
+    total_plots = len(start_dates)
     gs =  gridspec.GridSpec(total_plots, 1)
     gs.update(wspace=0, hspace=0.05) # set the spacing between axes. 
     
  
-    for dindex, date in enumerate(start_date): #make sure to sort or else the different lines will be different colors on different plots!! 
+    for dindex, date in enumerate(start_dates): #make sure to sort or else the different lines will be different colors on different plots!! 
         major_loc, major_fmt, minor_loc, minor_fmt, pandas_freq  = _timeseries_frequency_helper(major_granularity, minor_granularity)
          
         ax = plt.subplot(gs[dindex, 0])
@@ -161,7 +160,7 @@ def plot_event_frequency(ts_dict,
             if not len(ts_dict[k]) > 0:
                 print("No data for key {0}".format(k))
             else:
-                this_ts = [i for i in ts_dict[k] if i >= start_date[dindex] and i <= end_date[dindex]]
+                this_ts = sorted([i for i in ts_dict[k] if i >= start_dates[dindex] and i <= end_dates[dindex]])
                 ts = pandas.Series([1 for i in this_ts], index=this_ts).resample(pandas_freq, how='count')
                 ax.plot_date([d.to_datetime() for d,s in ts.iteritems()], [s for s in ts],  'o', label=k, color=_colors[kindex % 5])
 
@@ -174,8 +173,8 @@ def plot_event_frequency(ts_dict,
 def state_diagram(         ts_dict, 
                            major_granularity, 
                            minor_granularity, 
-                           start_date = None,
-                           end_date = None,
+                           start_dates,
+                           end_dates,
                            title = "Placeholder Title",
                            save_instead_plot = False,
                            print_annotated_records_in_range = False, 
@@ -183,7 +182,7 @@ def state_diagram(         ts_dict,
                            ylab = "Placeholder y label"):
     """plots the state transition diagram for K processes (process identifier keys given by
        ts_dict.keys()) for N different time ranges where N is:
-           1 given by len(start_date) == len(end_date) if these are supplied
+           1 given by len(start_dates) == len(end_date) if these are supplied
            2 the timespan of the process that has the largest timespan
            
        the state transition timestamps are truncated to "minor_granularity", the most fine of which is currently seconds. 
@@ -205,10 +204,12 @@ def state_diagram(         ts_dict,
                                
                       there will be one tickmark on the x axis for every major-minor. 
                       For example, if major is years and minor is months, there will be a tick for every month in the timerange.   
-        
-        Optional Args:
+
              start_dates (list of Datetime Objects): all data prior to element i is cut off prior to graphing on subplot i
              end_dates (list of Datetime Objects):   all data after element i is cut off prior to graphing on subplot i
+                     
+        Optional Args:
+
              title (string): goes into the matplotlib plot
              save_instead_plot (boolean): save the plot to a file instead of calling plot.show(). Defaults to False
              print_annotated_records_in_range (boolean) : if true, and if ts_dict contains
@@ -220,12 +221,12 @@ def state_diagram(         ts_dict,
              None, but writes to disk if save_instead_plot is True
     """
     fig = plt.figure()#setup the main graph
-    total_plots = len(start_date)
+    total_plots = len(start_dates)
     gs =  gridspec.GridSpec(total_plots, 1)
     gs.update(wspace=0, hspace=0.05) # set the spacing between axes. 
     
  
-    for dindex, date in enumerate(start_date): #make sure to sort or else the different lines will be different colors on different plots!! 
+    for dindex, date in enumerate(start_dates): #make sure to sort or else the different lines will be different colors on different plots!! 
         major_loc, major_fmt, minor_loc, minor_fmt, pandas_freq  = _timeseries_frequency_helper(major_granularity, minor_granularity)
          
         ax = plt.subplot(gs[dindex, 0])
@@ -236,17 +237,19 @@ def state_diagram(         ts_dict,
             if not len(ts_dict[k]["ts"]) > 0:
                 print("No data for key {0}".format(k))
             else:
-                this_ts = [i for i in ts_dict[k]["ts"] if i[0] >= start_date[dindex] and i[0] <= end_date[dindex]]
+                this_ts = sorted([i for i in ts_dict[k]["ts"] if i[0] >= start_dates[dindex] and i[0] <= end_dates[dindex]])
                 all_times = [i[0] for i in this_ts]
                 all_values = [i[1] for i in this_ts]
                 ts = pandas.Series(all_values, index=all_times).asfreq(pandas_freq,method='ffill')
                 ax.plot_date([d.to_datetime() for d,s in ts.iteritems()], [s for s in ts],  '-', label=k, color=_colors[kindex % 5], linewidth=2)
                 if "event_ts" in ts_dict[k]:
-                    this_ts = [i for i in ts_dict[k]["event_ts"] if i[0] >= start_date[dindex] and i[0] <= end_date[dindex]]
+                    this_ts = [i for i in ts_dict[k]["event_ts"] if i[0] >= start_dates[dindex] and i[0] <= end_dates[dindex]]
                     all_times = [i[0] for i in this_ts]
                     ts = pandas.Series([1 for i in all_times], index=all_times)
-                    ax.plot_date([d.to_datetime() for d,s in ts.iteritems()], [s for s in ts], '|',
-                            color=_colors[kindex % 5], mew=4, linewidth = 3, markersize=400)
+                    ax.plot_date([d.to_datetime() for d,s in ts.iteritems()], [s for s in ts], '|', color=_colors[kindex % 5], mew=4, linewidth = 3, markersize=400)
+                    if print_annotated_records_in_range:
+                        print("Records in range for key {0}:".format(k))
+                        print(this_ts)
 
         _xaxis_format(ax, major_loc, major_fmt, major_granularity, minor_loc, minor_fmt, minor_granularity, dindex, title, ylab) # format the ticks and the plotc        
             
