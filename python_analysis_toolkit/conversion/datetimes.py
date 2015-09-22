@@ -31,7 +31,7 @@ def datetime_timezone_dst_to_utc_datetime(dt, tz="US/Eastern"):
 def datetime_in_utc_to_epoch(dt):
     epoch = datetime.datetime.utcfromtimestamp(0)
     delta = dt - epoch
-    return delta.total_seconds()
+    return int(delta.total_seconds())
                                          
 """
 To epoch int
