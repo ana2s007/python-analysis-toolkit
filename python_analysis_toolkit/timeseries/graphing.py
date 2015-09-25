@@ -11,6 +11,9 @@ from pandas.tseries.offsets import *
 Internal Helper Functions
 """
 
+_colors = ['r', 'b', 'g', 'k', 'm']    
+
+
 def _timeseries_frequency_helper(major_granularity, minor_granularity):
     """Internal helper function to convert human readable labels into matplotlib and pandas parameters
         
@@ -69,8 +72,8 @@ def _timeseries_frequency_helper(major_granularity, minor_granularity):
         raise Exception("Unsupported Minor Frequency")      
     
     minor_fmt = DateFormatter('')
-    major_loc.MAXTICKS = 100
-    minor_loc.MAXTICKS = 10000
+    #major_loc.MAXTICKS = 1000
+    #minor_loc.MAXTICKS = 10000
 
     return major_loc, major_fmt, minor_loc, minor_fmt, pandas_freq  
 
@@ -83,25 +86,23 @@ def _finalize_helper(gs, save_instead_plot, fname, fig):
     else:
         plt.show() 
 
-def _xaxis_format(ax, major_loc, major_fmt, major_gran,  minor_loc, minor_fmt, minor_gran, gs_index, title, ylab):
+def _format(ax, major_loc, major_fmt, major_gran,  minor_loc, minor_fmt, minor_gran, gs_index, title, ylab, ymin = None, ymax = None):
     ax.xaxis.set_major_formatter(major_fmt)
-    ax.xaxis.set_minor_formatter(minor_fmt)
+    #ax.xaxis.set_minor_formatter(minor_fmt)
     ax.xaxis.set_major_locator(major_loc)
-    ax.xaxis.set_minor_locator(minor_loc) 
+    #ax.xaxis.set_minor_locator(minor_loc) 
     for tick in ax.get_xticklabels():
         tick.set_rotation(90) #rotate the labels. I don't like how fig.autofmt_xdate() works; sometimes it cuts off the top graph labels
-    ax.set_xlabel("Dates at granularity: {0}, {1}".format(major_gran, minor_gran))        
+    ax.set_xlabel("Dates at granularity: {0}, {1}".format(major_gran, minor_gran))  
+        
     ax.grid(True) #vlines at major locator
     plt.legend(fontsize=6, loc='best')        
     if gs_index == 0: #put the title and legend on first plot only
         plt.title(title)
     ax.set_ylabel(ylab)
     
-    
-
-_colors = ['r', 'b', 'g', 'k', 'm']    
-
-
+    if ymin is not None and ymax is not None:
+        ax.set_ylim(ymin-.25, ymax+.25)      
 
 """
 Public Functions
@@ -164,7 +165,7 @@ def plot_event_frequency(ts_dict,
                 ts = pandas.Series([1 for i in this_ts], index=this_ts).resample(pandas_freq, how='count')
                 ax.plot_date([d.to_datetime() for d,s in ts.iteritems()], [s for s in ts],  'o', label=k, color=_colors[kindex % 5])
 
-        _xaxis_format(ax, major_loc, major_fmt, major_granularity, minor_loc, minor_fmt, minor_granularity,  dindex, title, "Number of {0}".format(event_name)) # format the ticks and the plotc        
+        _format(ax, major_loc, major_fmt, major_granularity, minor_loc, minor_fmt, minor_granularity,  dindex, title, "Number of {0}".format(event_name)) # format the ticks and the plotc        
             
     _finalize_helper(gs, save_instead_plot, fname, fig)  
         
@@ -233,25 +234,29 @@ def state_diagram(         ts_dict,
         
         plot_dict = {}
         
+        min_all_values = None
+        max_all_values = None
+        
         for kindex, k in enumerate(ts_dict.keys()):
             if not len(ts_dict[k]["ts"]) > 0:
                 print("No data for key {0}".format(k))
             else:
                 this_ts = sorted([i for i in ts_dict[k]["ts"] if i[0] >= start_dates[dindex] and i[0] <= end_dates[dindex]])
-                all_times = [i[0] for i in this_ts]
                 all_values = [i[1] for i in this_ts]
-                ts = pandas.Series(all_values, index=all_times).asfreq(pandas_freq,method='ffill')
-                ax.plot_date([d.to_datetime() for d,s in ts.iteritems()], [s for s in ts],  '-', label=k, color=_colors[kindex % 5], linewidth=2)
+                min_all_values = min(min_all_values, min(all_values)) if min_all_values else min(all_values)
+                max_all_values = max(max_all_values, max(all_values)) if max_all_values else max(all_values)
+                ts = pandas.Series(all_values, index=[i[0] for i in this_ts]).asfreq(pandas_freq,method = 'ffill')
+                ax.plot_date([d.to_datetime() for d,s in ts.iteritems()], [s for s in ts],  '-', label=k, color=_colors[kindex % 5], mew=2, linewidth=2)
                 if "event_ts" in ts_dict[k]:
-                    this_ts = [i for i in ts_dict[k]["event_ts"] if i[0] >= start_dates[dindex] and i[0] <= end_dates[dindex]]
-                    all_times = [i[0] for i in this_ts]
-                    ts = pandas.Series([1 for i in all_times], index=all_times)
-                    ax.plot_date([d.to_datetime() for d,s in ts.iteritems()], [s for s in ts], '|', color=_colors[kindex % 5], mew=4, linewidth = 3, markersize=400)
+                    this_ts2 = sorted([i for i in ts_dict[k]["event_ts"] if i[0] >= start_dates[dindex] and i[0] <= end_dates[dindex]])
+                    ts = pandas.Series([0 for i in [i[0] for i in this_ts2]], index=[i[0] for i in this_ts2])
+                    ax.plot_date([d.to_datetime() for d,s in ts.iteritems()], [s for s in ts], '|', alpha=.3, color=_colors[kindex % 5], mew=2, linewidth = 2, markersize=400)
                     if print_annotated_records_in_range:
                         print("Records in range for key {0}:".format(k))
-                        print(this_ts)
+                        for i in sorted(this_ts + this_ts2):
+                            print(i)
 
-        _xaxis_format(ax, major_loc, major_fmt, major_granularity, minor_loc, minor_fmt, minor_granularity, dindex, title, ylab) # format the ticks and the plotc        
+        _format(ax, major_loc, major_fmt, major_granularity, minor_loc, minor_fmt, minor_granularity, dindex, title, ylab, min_all_values, max_all_values) # format the ticks and the plotc        
             
     _finalize_helper(gs, save_instead_plot, fname, fig)        
                 
