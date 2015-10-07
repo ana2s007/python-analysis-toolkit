@@ -32,3 +32,8 @@ def ymdhms_to_epoch(input_str):
 
 def ymdhms_timezone_dst_to_epoch(input_str,  tz="US/Eastern"):
     return datetime_in_utc_to_epoch(datetime_timezone_dst_to_utc_datetime(ymdhms_to_datetime(input_str), kill_utc_tz = False))
+
+"""Other"""
+def is_weekday(dt):
+    """returns whether the datetime is a weekday"""
+    return dt.isoweekday() in range(1, 6)
