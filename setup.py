@@ -9,7 +9,7 @@ reqs = [str(ir.req) for ir in parse_requirements("requirements.txt", session=Fal
 
 setup(
     name = "python_analysis_toolkit",
-    version = "0.7.3",
+    version = "0.8.0",
     author = "Tommy Carpenter",
     author_email = "tommyjcarpenter@gmail.com",
     description = ("A collection of data-analysis based functions for Python."),
