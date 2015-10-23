@@ -10,12 +10,14 @@ from python_analysis_toolkit.machine_learning import clustering
 
 _colors = ['r', 'b', 'g', 'k', 'm', 'c', 'y']  
 
-def pca_biplot_with_clustering(data_matrix, feature_labels, mean_normalize = False, K = 5, n_components=2, f_out = "foo"):
+def pca_biplot_with_clustering(data_matrix, feature_labels, mean_normalize = False, k_means_post = True, K = 5, n_components=2, f_out = "foo"):
     """
     Inputs:
         data_matrix: numpy array of shape n x f where n is the number of samples and f is the number of features (variables)
         feature_labels: the list of human-interpretable labels for the rows in data_matrix. Used for the biplot
         mean_normalize: if true, each row i of data_matrix is replaced with i - mean(i)
+        k_means_post: if True, k means is run after the PCA analysis on the projected data matrix. I.e., in the reduced space. 
+                      if False, it is run before the PCA, and before the mean_normalization, and then the clusters are projected into the space. 
         n_components: the number of PCA vectors you want. 
         f_out: the path to write the graph (as PDF) to
         
@@ -35,6 +37,9 @@ def pca_biplot_with_clustering(data_matrix, feature_labels, mean_normalize = Fal
         http://nxn.se/post/36838219245/loadings-with-scikit-learn-pca
     """    
     data_matrix = np.nan_to_num(data_matrix) #clustering does not allow infs, nans
+    
+    if not k_means_post: 
+        centroids, labels = clustering.kmpp(data_matrix, K)
         
     if mean_normalize:   
         for iindex, i in enumerate(data_matrix):
@@ -55,8 +60,8 @@ def pca_biplot_with_clustering(data_matrix, feature_labels, mean_normalize = Fal
         loading_vectors.append((list(r_loadings[i])))
         loading_labels.append(str(feature_labels[i]))
     
-    #Run KM
-    centroids, labels = clustering.kmpp(transformed_matrix, K)
+    if k_means_post: 
+        centroids, labels = clustering.kmpp(transformed_matrix, K)
     
     #do the plot
     fig, ax = plt.subplots()
@@ -85,7 +90,7 @@ def pca_biplot_with_clustering(data_matrix, feature_labels, mean_normalize = Fal
     ax.set_title("", fontsize = 20)
     ax.grid(b=True, which='major', color='k', linestyle='--')
 
-    fig.savefig(f_out + "{0}{1}".format(K, "_normalized" if mean_normalize else "") + ".pdf", format="pdf")    
+    fig.savefig(f_out + "{0}{1}{2}".format(K, "_meannormalized" if mean_normalize else "", "_kmpost" if k_means_post else "_kmfirst") + ".pdf", format="pdf")    
     plt.close() #THIS IS CRUCIAL SEE:  http://stackoverflow.com/questions/26132693/matplotlib-saving-state-between-different-uses-of-io-bytesio
     return r_loadings
 
